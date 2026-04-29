@@ -1,6 +1,5 @@
 #!/system/bin/sh
-# AOWcloud UAC2 - install customization
-# Sets proper permissions on installed module files
+# AOWcloud UAC2 - install customization (debug version)
 
 ui_print " "
 ui_print "============================================"
@@ -10,33 +9,22 @@ ui_print " by vTomsonek"
 ui_print "============================================"
 ui_print " "
 
-# Set permissions on scripts
-[ -f "$MODPATH/post-fs-data.sh" ] && chmod 755 "$MODPATH/post-fs-data.sh"
-[ -f "$MODPATH/service.sh" ] && chmod 755 "$MODPATH/service.sh"
-[ -f "$MODPATH/action.sh" ] && chmod 755 "$MODPATH/action.sh"
-[ -f "$MODPATH/status.sh" ] && chmod 755 "$MODPATH/status.sh"
-[ -f "$MODPATH/uninstall.sh" ] && chmod 755 "$MODPATH/uninstall.sh"
+# Debug - sprawdz zmienne
+ui_print "DEBUG: MODPATH=$MODPATH"
+ui_print "DEBUG: MODDIR=$MODDIR"
+ui_print "DEBUG: TMPDIR=$TMPDIR"
+ui_print "DEBUG: PATH=$PATH"
 
-# Webroot
-if [ -d "$MODPATH/webroot" ]; then
-  chmod 755 "$MODPATH/webroot"
-  [ -f "$MODPATH/webroot/index.html" ] && chmod 644 "$MODPATH/webroot/index.html"
+# Sprawdz co jest w MODPATH
+if [ -n "$MODPATH" ] && [ -d "$MODPATH" ]; then
+  ui_print "DEBUG: MODPATH content:"
+  ls "$MODPATH" 2>&1 | while read line; do
+    ui_print "  $line"
+  done
 fi
 
-# Modules folder (kernel modules)
-if [ -d "$MODPATH/modules" ]; then
-  chmod 755 "$MODPATH/modules"
-  [ -f "$MODPATH/modules/snd-aloop.ko" ] && chmod 644 "$MODPATH/modules/snd-aloop.ko"
-fi
-
-ui_print "Module installed successfully"
 ui_print " "
-ui_print "After reboot, UAC2 + ADB will auto-activate"
-ui_print "in approximately 75 seconds."
-ui_print " "
-ui_print "Open KernelSU Manager > Modules > AOWcloud UAC2"
-ui_print "to access the WebUI dashboard."
+ui_print "Module installed - manual permissions check needed"
 ui_print " "
 
-# IMPORTANT: exit 0 explicitly
 exit 0
