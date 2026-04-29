@@ -1,6 +1,4 @@
-# Changelog
-
-## v2.2.4 - 2026-04-29
+## v2.2.4
 
 ### Fixed
 - Removed `customize.sh` that was causing install failures with `Error code: 1` on KernelSU-Next
@@ -10,20 +8,20 @@
 ### Changed
 - Simpler module structure - no install-time scripts that can fail
 
-## v2.2.3 - 2026-04-29
+## v2.2.3
 
 ### Added
 - `update.json` for automatic update notifications via KernelSU Manager
 - `updateJson` field in `module.prop` pointing to GitHub raw URL
 
-## v2.2.2 - 2026-04-29
+## v2.2.2
 
 ### Added
 - `customize.sh` for install-time setup (later removed in v2.2.4 due to KSU-Next compatibility issues)
 - Comprehensive `README.md` with troubleshooting and technical details
 - `CHANGELOG.md` for tracking changes
 
-## v2.2.1 - Initial Public Release
+## v2.2.1
 
 ### Features
 - Auto-start UAC2 + ADB after boot (~75s)
