@@ -3,7 +3,7 @@
 > KernelSU-Next module that turns your Xiaomi 12 Pro into a USB Audio Class 2 sound card while keeping ADB working — perfect for call-center setups, voice-streaming workflows, or anything that needs the phone to act as a USB soundcard for a PC.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v2.2.1-green)](#)
+[![Version](https://img.shields.io/badge/version-v2.2.2-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
 
