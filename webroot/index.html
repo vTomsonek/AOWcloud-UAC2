@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AOWcloud UAC2</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 16px;
+  min-height: 100vh;
+}
+h1 { font-size: 22px; color: #3b82f6; margin-bottom: 4px; }
+.subtitle { color: #64748b; font-size: 13px; margin-bottom: 16px; }
+.banner {
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 15px;
+}
+.banner.ok { background: #166534; color: #86efac; }
+.banner.warn { background: #92400e; color: #fcd34d; }
+.banner.error { background: #7f1d1d; color: #fca5a5; }
+.cards { display: grid; gap: 10px; margin-bottom: 16px; grid-template-columns: 1fr 1fr; }
+.card {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #334155;
+}
+.card-title {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.card-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: monospace;
+}
+.checks { display: grid; gap: 6px; margin-bottom: 16px; }
+.check {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #1e293b;
+  border-radius: 6px;
+  border-left: 3px solid #475569;
+  font-size: 13px;
+}
+.check.ok { border-left-color: #22c55e; }
+.check.fail { border-left-color: #ef4444; }
+.check.ok .stat { color: #4ade80; font-weight: 600; }
+.check.fail .stat { color: #f87171; font-weight: 600; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+button {
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; }
+.btn-secondary { background: #334155; color: #e2e8f0; }
+button:disabled { opacity: 0.5; }
+.info {
+  background: #1e293b;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  font-family: monospace;
+}
+.refresh-info { font-size: 11px; color: #64748b; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>AOWcloud UAC2</h1>
+<div class="subtitle">USB Audio + ADB Status</div>
+
+<div id="banner" class="banner warn">Loading...</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-title">UDC State</div>
+    <div id="state" class="card-value">-</div>
+  </div>
+  <div class="card">
+    <div class="card-title">VID:PID</div>
+    <div id="vidpid" class="card-value">-</div>
+  </div>
+</div>
+
+<div class="checks" id="checks"></div>
+
+<div class="actions">
+  <button class="btn-primary" id="btn-action" onclick="runAction()">Aktywuj UAC2</button>
+  <button class="btn-secondary" onclick="refresh()">Odswiez</button>
+</div>
+
+<div class="info" id="lastUpdate">-</div>
+<div class="refresh-info">Auto-refresh co 3 sekundy</div>
+
+<script>
+function refresh() {
+  try {
+    // Najpierw uruchom status.sh - generuje plik JSON
+    ksu.exec("/data/adb/modules/aowcloud_uac2/status.sh");
+    
+    // Potem czytaj JSON z pliku przez readFile (multiline-safe)
+    var json = ksu.readFile("/data/local/tmp/uac2_status.json");
+    
+    if (!json || json.length < 5) {
+      banner("error", "Brak odpowiedzi z status.sh");
+      return;
+    }
+    
+    var s = JSON.parse(json);
+    updateUI(s);
+    document.getElementById("lastUpdate").textContent = "Ostatnia aktualizacja: " + new Date().toLocaleTimeString();
+  } catch(e) {
+    banner("error", "Error: " + e.message);
+  }
+}
+
+function banner(cls, text) {
+  var b = document.getElementById("banner");
+  b.className = "banner " + cls;
+  b.textContent = text;
+}
+
+function updateUI(s) {
+  if (s.all_ok) {
+    banner("ok", "Wszystko dziala - UAC2 + ADB aktywne");
+  } else if (s.state === "configured") {
+    banner("warn", "Czesciowo skonfigurowane");
+  } else {
+    banner("error", "UAC2 nieaktywne - kliknij Aktywuj");
+  }
+  
+  document.getElementById("state").textContent = s.state || "-";
+  document.getElementById("vidpid").textContent = (s.vid || "-") + ":" + (s.pid || "-");
+  
+  var checks = [
+    { name: "Karta UAC2Gadget (ALSA)", ok: s.has_uac2_card },
+    { name: "uac2.0 w configurze", ok: s.has_uac2 },
+    { name: "ADB w configurze", ok: s.has_adb },
+    { name: "Modul snd-aloop", ok: s.has_aloop },
+    { name: "idProduct = 0x4ee5", ok: s.pid === "0x4ee5" },
+    { name: "UDC = configured", ok: s.state === "configured" }
+  ];
+  
+  document.getElementById("checks").innerHTML = checks.map(function(c) {
+    return "<div class=\"check " + (c.ok ? "ok" : "fail") + "\">" +
+           "<span>" + c.name + "</span>" +
+           "<span class=\"stat\">" + (c.ok ? "OK" : "BRAK") + "</span>" +
+           "</div>";
+  }).join("");
+}
+
+function runAction() {
+  var btn = document.getElementById("btn-action");
+  btn.disabled = true;
+  btn.textContent = "Aktywuje...";
+  
+  try {
+    ksu.exec("/data/adb/modules/aowcloud_uac2/action.sh");
+    setTimeout(function() {
+      btn.disabled = false;
+      btn.textContent = "Aktywuj UAC2";
+      refresh();
+    }, 3000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = "Aktywuj UAC2";
+    banner("error", "Action error: " + e.message);
+  }
+}
+
+setInterval(refresh, 3000);
+refresh();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,6 @@
+id=aowcloud_uac2
+name=AOWcloud UAC2
+version=v2.2.1
+versionCode=1
+author=vTomsonek
+description=Auto-loads snd-aloop and configures UAC2 USB Audio gadget for call center setup. Allows phone to act as USB sound card for PC.
