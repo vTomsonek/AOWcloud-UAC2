@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# AOWcloud UAC2 - install customization (debug version)
+# AOWcloud UAC2 - install customization
 
 ui_print " "
 ui_print "============================================"
@@ -9,22 +9,19 @@ ui_print " by vTomsonek"
 ui_print "============================================"
 ui_print " "
 
-# Debug - sprawdz zmienne
-ui_print "DEBUG: MODPATH=$MODPATH"
-ui_print "DEBUG: MODDIR=$MODDIR"
-ui_print "DEBUG: TMPDIR=$TMPDIR"
-ui_print "DEBUG: PATH=$PATH"
+# Set permissions
+chmod 755 "$MODPATH"/*.sh
+chmod 755 "$MODPATH/webroot"
+chmod 644 "$MODPATH/webroot/index.html"
+chmod 755 "$MODPATH/modules"
+chmod 644 "$MODPATH/modules/snd-aloop.ko"
 
-# Sprawdz co jest w MODPATH
-if [ -n "$MODPATH" ] && [ -d "$MODPATH" ]; then
-  ui_print "DEBUG: MODPATH content:"
-  ls "$MODPATH" 2>&1 | while read line; do
-    ui_print "  $line"
-  done
-fi
-
+ui_print "- Permissions set"
 ui_print " "
-ui_print "Module installed - manual permissions check needed"
+ui_print "Module installed successfully!"
+ui_print " "
+ui_print "After reboot, UAC2 + ADB will auto-activate"
+ui_print "in approximately 75 seconds."
 ui_print " "
 
 exit 0
