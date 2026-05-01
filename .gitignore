@@ -1,22 +1,31 @@
-# Diagnostyka jednorazowa
+﻿# Diagnostyka jednorazowa
 diag_output.txt
 test_call*.mp3
 test_call*.wav
 
-# Backupy / artefakty
+# Backupy / artefakty kompilacji
 *.bak
 *.bak.*
 bridge_prebuilt
 zi3PjMVI
 
-# Duplikaty z procesu kopiowania (sandbox can't unlink)
+# Lokalne narzedzia z hardcoded paths (nie publikowac - ujawnia user/folder na PC)
+build_bridge.ps1
+release_*.ps1
+cleanup_repo.ps1
+
+# Superseded source (bridge.c.v306 jest aktualny)
+bridge.c.proposed
+
+# Binary release - publikuj jako GitHub Release asset, nie blob w repo
+AOWcloud_UAC2_v*.zip
+
+# Duplikaty z procesu kopiowania
 system/xbin/bridge_A
 system/xbin/bridge_B
 
-# IDE
+# IDE / OS
 .idea/
 .vscode/
-
-# OS
 .DS_Store
 Thumbs.db
