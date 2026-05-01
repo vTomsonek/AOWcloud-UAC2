@@ -1,11 +1,12 @@
-# AOWcloud UAC2 Call Center
+# AOWcloud UAC2
 
-> Complete call-center stack for Xiaomi 12 Pro: USB Audio Class 2 + ADB persistence + privileged Bridge Android app + ALSA bridge daemon — turns the phone into a USB soundcard with HAL-bypassed voice-call capture for downstream PCs.
+> KernelSU module for Xiaomi 12 Pro: USB Audio Class 2 + ADB composite gadget + ALSA bridge daemon. Turns the phone into a bidirectional USB soundcard (48 kHz, 16-bit, stereo). Companion Android app for HAL-bypassed voice-call capture is in a separate repo: **[github.com/vTomsonek/AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge)**.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v3.0.6-green)](#)
+[![Version](https://img.shields.io/badge/version-v3.1.0-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
+[![App](https://img.shields.io/badge/app-AOWcloud--Bridge-blue)](https://github.com/vTomsonek/AOWcloud-Bridge)
 
 ---
 
@@ -13,15 +14,17 @@
 
 After installing this module and rebooting, your phone will automatically:
 
-1. ✅ Load the `snd-aloop` kernel module (virtual ALSA loopback cable)
+1. ✅ Load the `snd-aloop` kernel module (ALSA loopback for `bridge` classic mode)
 2. ✅ Add a UAC2 (USB Audio Class 2) function to the active USB gadget
 3. ✅ Keep ADB working in parallel (composite gadget: ADB + UAC2)
 4. ✅ Set a fresh `idProduct` (`0x4ee5`) so Windows re-enumerates the device cleanly
-5. ✅ Inject `pl.aowcloud.bridge` as a system priv-app at `/system/priv-app/AOWcloudBridge/` with `CAPTURE_AUDIO_OUTPUT` + `MODIFY_PHONE_STATE` granted (HAL voice-mute bypass — see CHANGELOG v3.0.0/v3.0.4 for the long story)
-6. ✅ Install the ALSA bridge daemon at `/system/xbin/bridge` so the Android app can `Runtime.exec("/system/xbin/bridge ...")` without `su` and without manual KSU root-list entries
+5. ✅ Install the ALSA bridge daemon at `/system/xbin/bridge` (capture↔playback / `--stdin` / `--stdout` modes, callable via `su -c` or directly by privileged apps)
+6. ✅ Auto-grant `CAPTURE_AUDIO_OUTPUT` + `MODIFY_PHONE_STATE` for `pl.aowcloud.bridge` if installed (companion app from [AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge))
 7. ✅ Expose a real-time status dashboard via KernelSU WebUI
 
-The system overlay for `/system/priv-app/`, `/system/etc/permissions/`, and `/system/xbin/` is built at boot via `tmpfs` + `mount --bind` (this kernel doesn't support OverlayFS xattr fallbacks).
+The `/system/xbin/` overlay is built at boot via `tmpfs` + `mount --bind` (this kernel doesn't support OverlayFS xattr fallbacks).
+
+**v3.1.0 split**: the Android app `pl.aowcloud.bridge` (Kotlin source + APK) lives in a separate repo. Install it manually via Android Studio Run or `adb install` from [AOWcloud-Bridge releases](https://github.com/vTomsonek/AOWcloud-Bridge/releases). The module by itself provides a complete USB Audio + ADB setup for any PC-side software (Voicemeeter, OBS, Audacity, etc.) — the app is only needed for in-call audio routing (HAL voice-mute bypass).
 
 When connected to a PC over USB-C, Windows will see:
 
@@ -189,30 +192,27 @@ Find `<card_num>` from `cat /proc/asound/cards`.
 
 ---
 
-## Module structure
+## Module structure (v3.1.0)
 
 ```
 aowcloud_uac2/
 ├── module.prop                metadata for KernelSU
 ├── update.json                auto-update notifier endpoint
-├── customize.sh               install-time chmod/chcon for system/ overlay tree
-├── post-fs-data.sh            loads snd-aloop, bind-mounts /system/priv-app /etc/permissions /xbin
-├── service.sh                 waits for boot_completed, runs action.sh, auto-grants signature perms
+├── post-fs-data.sh            loads snd-aloop, bind-mounts /system/xbin/ for bridge daemon
+├── service.sh                 waits for boot_completed, runs action.sh, auto-grants perms (if app installed)
 ├── action.sh                  proven UAC2 + ADB activation sequence (idempotent)
 ├── status.sh                  emits status JSON to /data/local/tmp/uac2_status.json
 ├── uninstall.sh               cleans up logs
 ├── modules/
 │   └── snd-aloop.ko           ALSA loopback kernel module
 ├── system/
-│   ├── etc/permissions/
-│   │   └── privapp-permissions-pl.aowcloud.bridge.xml
-│   ├── priv-app/AOWcloudBridge/
-│   │   └── AOWcloudBridge.apk
 │   └── xbin/
 │       └── bridge             ALSA bridge daemon (capture↔playback / stdin / stdout modes)
 └── webroot/
     └── index.html             KernelSU WebUI dashboard (3 sections)
 ```
+
+**Removed in v3.1.0** (vs v3.0.6): `system/priv-app/AOWcloudBridge/`, `system/etc/permissions/privapp-permissions-pl.aowcloud.bridge.xml`, `customize.sh`. The companion Android app is now distributed via the [AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge) repo and installed by the user (Android Studio Run or `adb install`), not bundled with the module.
 
 Logs:
 - `/data/local/tmp/uac2_callcenter.log` — boot + service runs

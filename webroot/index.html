@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AOWcloud UAC2 Call Center v3.0.6</title>
+<title>AOWcloud UAC2 v3.1.0</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -100,8 +100,8 @@ button:disabled { opacity: 0.5; }
 </head>
 <body>
 
-<h1>AOWcloud UAC2 v3.0.6</h1>
-<div class="subtitle">USB Audio + ADB + Bridge priv-app + Bridge daemon</div>
+<h1>AOWcloud UAC2 v3.1.0</h1>
+<div class="subtitle">USB Audio + ADB + Bridge daemon (module-only)</div>
 
 <div id="banner" class="banner warn">Loading...</div>
 
@@ -187,20 +187,16 @@ function banner(cls, text) {
 }
 
 function updateUI(s) {
-  if (s.all_ok) {
-    banner("ok", "Wszystko OK - UAC2 + Bridge priv-app + Bridge daemon aktywne");
-  } else if (s.state !== "configured") {
+  if (s.state !== "configured") {
     banner("error", "[1] UAC2 nieaktywne - kliknij Aktywuj UAC2");
-  } else if (!s.app_installed) {
-    banner("error", "[2] Bridge app NIE zainstalowana w /system/priv-app/");
-  } else if (!s.app_is_priv) {
-    banner("warn", "[2] Bridge app zainstalowana jako USER APP (nie priv-app)");
-  } else if (!s.app_has_capture || !s.app_has_modify_phone) {
-    banner("warn", "[2] Bridge priv-app dziala, brak signature permission grants");
   } else if (s.bridge_binary !== "ok") {
     banner("warn", "[3] Bridge binary problem: " + s.bridge_binary);
+  } else if (!s.app_installed) {
+    banner("ok", "Module OK. Bridge App opcjonalna - github.com/vTomsonek/AOWcloud-Bridge");
+  } else if (!s.app_has_capture || !s.app_has_modify_phone) {
+    banner("warn", "[2] Bridge app zainstalowana, brak signature permission grants (poczekaj na boot_completed)");
   } else {
-    banner("warn", "Czesciowo skonfigurowane");
+    banner("ok", "Wszystko OK - UAC2 + Bridge daemon + Bridge app aktywne");
   }
 
   // === SEKCJA 1 ===
@@ -219,14 +215,21 @@ function updateUI(s) {
 
   // === SEKCJA 2 ===
   document.getElementById("appVersion").textContent = s.app_version || "-";
-  var appStatusTxt = !s.app_installed ? "BRAK" : (s.app_is_priv ? "PRIV-APP" : "USER APP");
-  document.getElementById("appStatus").textContent = appStatusTxt;
+  document.getElementById("appStatus").textContent = s.app_installed ? "OK" : "BRAK (opcjonalna)";
 
-  var appChecks = [
-    { name: "Aplikacja zainstalowana", ok: s.app_installed },
-    { name: "CAPTURE_AUDIO_OUTPUT granted", ok: s.app_has_capture },
-    { name: "MODIFY_PHONE_STATE granted", ok: s.app_has_modify_phone }
-  ];
+  var appChecks;
+  if (s.app_installed) {
+    appChecks = [
+      { name: "Aplikacja zainstalowana", ok: true },
+      { name: "CAPTURE_AUDIO_OUTPUT granted", ok: s.app_has_capture },
+      { name: "MODIFY_PHONE_STATE granted", ok: s.app_has_modify_phone }
+    ];
+  } else {
+    appChecks = [
+      { name: "Apka opcjonalna - module dziala bez niej", ok: true },
+      { name: "Pobierz: github.com/vTomsonek/AOWcloud-Bridge", ok: true }
+    ];
+  }
   document.getElementById("appChecks").innerHTML = renderChecks(appChecks);
 
   // === SEKCJA 3 ===

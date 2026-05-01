@@ -1,7 +1,7 @@
 id=aowcloud_uac2
 name=AOWcloud UAC2
-version=v3.0.6
-versionCode=306
+version=v3.1.0
+versionCode=310
 author=vTomsonek
-description=Complete call center solution: UAC2 USB Audio + ADB persistence + AOWcloud Bridge system priv-app + bridge daemon in /system/xbin/. Auto-activates UAC2+ADB after boot, injects priv-app + permissions XML over RO /system via tmpfs bind-mount.
+description=USB Audio Class 2 module for Xiaomi 12 Pro: UAC2 + ADB composite gadget, snd-aloop loopback, ALSA bridge daemon in /system/xbin/, auto-grant CAPTURE_AUDIO_OUTPUT for pl.aowcloud.bridge if installed. For full call-center setup install companion app: github.com/vTomsonek/AOWcloud-Bridge
 updateJson=https://raw.githubusercontent.com/vTomsonek/AOWcloud-UAC2/main/update.json

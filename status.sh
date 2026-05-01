@@ -1,7 +1,8 @@
 #!/system/bin/sh
-# AOWcloud UAC2 v3.0.5 final - status JSON
-# v3.0.5: app is user-app with auto-granted signature|privileged perms.
-# Detect via pm path + permission grants.
+# AOWcloud UAC2 v3.1.0 - status JSON
+# Module-only release: app pl.aowcloud.bridge jest OPTIONAL
+# (osobny pakiet: github.com/vTomsonek/AOWcloud-Bridge).
+# Wykrywamy jej obecnosc, ale nie wymagamy w ALL_OK.
 
 GADGET=/config/usb_gadget/g1
 CONFIG=$GADGET/configs/b.1
@@ -63,10 +64,10 @@ if [ -f "$BRIDGE_PATH" ]; then
   fi
 fi
 
-# v3.0.5: ALL_OK no longer requires priv-app flag - just installed + grants
+# v3.1.0: ALL_OK = UAC2 + ADB + bridge daemon. App jest OPTIONAL.
+# Module sam zapewnia voice path infrastructure - app to client opt-in.
 ALL_OK="false"
 if [ "$STATE" = "configured" ] && [ "$PID" = "0x4ee5" ] && [ "$HAS_UAC2" = "true" ] && [ "$HAS_ADB" = "true" ] \
-   && [ "$APP_INSTALLED" = "true" ] && [ "$APP_HAS_CAPTURE" = "true" ] && [ "$APP_HAS_MODIFY_PHONE" = "true" ] \
    && [ "$BRIDGE_BINARY" = "ok" ]; then
   ALL_OK="true"
 fi

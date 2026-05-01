@@ -1,3 +1,39 @@
+## v3.1.0 (2026-05-01)
+
+### Major: Module-app split
+
+Aplikacja `pl.aowcloud.bridge` jest teraz **osobnym repo**:
+[github.com/vTomsonek/AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge).
+Ten module zostaje czysto module-only (UAC2 audio infrastructure + bridge
+daemon binary). User instaluje aplikacje recznie (Android Studio Run /
+`adb install`).
+
+### Removed (z modulu wyleciaa apka i powiazane pliki)
+- `system/priv-app/AOWcloudBridge/AOWcloudBridge.apk` (24 MB)
+- `system/etc/permissions/privapp-permissions-pl.aowcloud.bridge.xml`
+- `customize.sh` (sluzyl do chmod/chcon dla priv-app overlay)
+- W `post-fs-data.sh`: `bind_inject "priv_app"` i `bind_inject "perm"` calls
+
+### Kept
+- Wszystko zwiazane z UAC2 + ADB gadget (action.sh, snd-aloop)
+- `/system/xbin/bridge` daemon (binary + tmpfs+bind)
+- `service.sh` `cmd package grant` (defensywnie - jesli apka jest zainstalowana
+  to grant sie wykona; jesli nie, `pm path` wraca bledem i grants sa pominiete)
+- `status.sh` wykrywa apke informational. `ALL_OK` nie wymaga juz `app_installed`
+  ani `app_has_*` - module jest "OK" gdy UAC2 + ADB + bridge daemon dzialaja.
+
+### Why
+Dwa powody:
+1. **Lifecycle separation** - module wymaga reboot, aplikacja nie. Niezalezne
+   wersjonowanie pozwala wgrywac update apki bez reboot.
+2. **PM mmap APK z tmpfs nie dziala** w niektorych konfiguracjach HyperOS -
+   priv-app inject w v3.0.x nie zawsze konczy sie zaladowaniem APK. User-app
+   instalacja przez `adb install` + auto-grant sygn. perms przez `cmd package
+   grant` w `service.sh` daje tym samym efekcie ale dziala niezawodnie.
+
+### Module size
+~470 KB (z 8.2 MB w v3.0.6 - 95% redukcja, glownie dzieki wycieciu APK).
+
 ## v3.0.6 (2026-05-01)
 
 ### Fixed

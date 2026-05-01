@@ -1,20 +1,21 @@
 #!/system/bin/sh
-# AOWcloud UAC2 v3.0.5 - post-fs-data
+# AOWcloud UAC2 v3.1.0 - post-fs-data
 #
 # What this does:
-#   1. Loads snd-aloop kernel module (UAC2 audio loopback).
-#   2. Injects three things into RO /system via tmpfs + mount --bind:
-#        a) /system/priv-app/AOWcloudBridge   (signature|privileged app)
-#        b) /system/etc/permissions/...xml    (privapp-permissions whitelist)
-#        c) /system/xbin/bridge               (ALSA bridge daemon binary)
-#   3. Restores SELinux contexts via restorecon after each bind.
+#   1. Loads snd-aloop kernel module (ALSA loopback for bridge classic mode).
+#   2. Injects ALSA bridge daemon binary at /system/xbin/bridge via
+#      tmpfs + mount --bind (kernel doesn't support OverlayFS xattr).
+#   3. Restores SELinux contexts via restorecon after bind.
+#
+# v3.1.0 (module-only): aplikacja AOWcloud Bridge jest osobno na
+# github.com/vTomsonek/AOWcloud-Bridge (instalujesz przez Android Studio Run
+# lub adb install). Module robi auto-grant signature permissions
+# w service.sh jesli apka jest zainstalowana.
 #
 # Why bind-mount + tmpfs (not OverlayFS):
 #   This Xiaomi 12 Pro kernel doesn't expose trusted.* xattr on /data (F2FS)
 #   or /dev (tmpfs) and lacks userxattr (kernel <5.11). OverlayFS rejects
-#   every fallback (EINVAL / "Operation not supported on transport endpoint").
-#   Bind-mount over tmpfs hosting a full copy of the original /system path
-#   plus our additions is the working pattern.
+#   every fallback. Bind-mount over tmpfs is the working pattern.
 
 MODDIR=${0%/*}
 LOG=/data/local/tmp/uac2_callcenter.log
@@ -45,7 +46,7 @@ bind_inject() {
     echo "  tmpfs $TMPFS_DIR: $?" >> "$LOG"
   fi
 
-  # Copy original /system contents first (so SystemUI etc. are not lost on bind)
+  # Copy original /system contents first (so other entries are not lost on bind)
   if [ -d "$TARGET" ]; then
     cp -ar "$TARGET/." "$TMPFS_DIR/" 2>>"$LOG"
     echo "  cp $TARGET -> $TMPFS_DIR: $?" >> "$LOG"
@@ -70,19 +71,7 @@ bind_inject() {
   return $RC
 }
 
-# === 3a. priv-app  (53 MB on this device, give tmpfs 128 MB) ===
-PRIV_SRC="$MODDIR/system/priv-app"
-if [ -d "$PRIV_SRC/AOWcloudBridge" ]; then
-  bind_inject "priv_app" "$PRIV_SRC" "/system/priv-app" "128M"
-fi
-
-# === 3b. permissions XML  (120 KB on this device, 8 MB tmpfs) ===
-PERM_SRC="$MODDIR/system/etc/permissions"
-if [ -f "$PERM_SRC/privapp-permissions-pl.aowcloud.bridge.xml" ]; then
-  bind_inject "perm" "$PERM_SRC" "/system/etc/permissions" "8M"
-fi
-
-# === 3c. xbin/bridge  (binary daemon, 16 MB tmpfs) ===
+# === 3. xbin/bridge  (binary daemon, 16 MB tmpfs) ===
 XBIN_SRC="$MODDIR/system/xbin"
 if [ -f "$XBIN_SRC/bridge" ]; then
   bind_inject "xbin" "$XBIN_SRC" "/system/xbin" "16M"
@@ -93,8 +82,6 @@ if [ -f "$XBIN_SRC/bridge" ]; then
 fi
 
 # === 4. Sanity ===
-echo "  after priv-app: $(ls -laZ /system/priv-app/AOWcloudBridge/AOWcloudBridge.apk 2>&1)" >> "$LOG"
-echo "  after perm:     $(ls -laZ /system/etc/permissions/privapp-permissions-pl.aowcloud.bridge.xml 2>&1)" >> "$LOG"
-echo "  after xbin:     $(ls -laZ /system/xbin/bridge 2>&1)" >> "$LOG"
+echo "  bridge in /system/xbin: $(ls -laZ /system/xbin/bridge 2>&1)" >> "$LOG"
 
 echo "=== post-fs-data.sh DONE $(date) ===" >> "$LOG"
