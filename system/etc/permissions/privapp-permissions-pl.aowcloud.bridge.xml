@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Privileged app permissions for pl.aowcloud.bridge
+
+    This whitelist grants signature|privileged permissions to the AOWcloud
+    Bridge app when it is mounted into /system/priv-app/AOWcloudBridge/.
+
+    Without this file, Android 12 PackageManager will WIPE the privileged
+    permissions of any priv-app on first boot (PackageManagerException,
+    "Signature|privileged permissions not in privapp-permissions whitelist").
+
+    Format: Android 12 (API 31). Path on device after KSU mount:
+        /system/etc/permissions/privapp-permissions-pl.aowcloud.bridge.xml
+-->
+<permissions>
+    <privapp-permissions package="pl.aowcloud.bridge">
+        <!-- Required to capture audio coming back from the modem
+             during a GSM call (AudioSource.VOICE_DOWNLINK / VOICE_CALL).
+             Without it, the Audio HAL silently mutes the stream. -->
+        <permission name="android.permission.CAPTURE_AUDIO_OUTPUT"/>
+
+        <!-- Required to call TelephonyManager APIs that change phone state
+             (e.g. setting audio routing during a call, answering/ending). -->
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+
+        <!-- Allows `adb shell dumpsys` style introspection from inside the
+             app. Useful for the bridge daemon's diagnostic commands. -->
+        <permission name="android.permission.DUMP"/>
+    </privapp-permissions>
+</permissions>

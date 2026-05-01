@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AOWcloud UAC2</title>
+<title>AOWcloud UAC2 Call Center v3.0.6</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -18,7 +18,7 @@ h1 { font-size: 22px; color: #3b82f6; margin-bottom: 4px; }
 .banner {
   padding: 14px;
   border-radius: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   text-align: center;
   font-weight: 600;
   font-size: 15px;
@@ -26,7 +26,22 @@ h1 { font-size: 22px; color: #3b82f6; margin-bottom: 4px; }
 .banner.ok { background: #166534; color: #86efac; }
 .banner.warn { background: #92400e; color: #fcd34d; }
 .banner.error { background: #7f1d1d; color: #fca5a5; }
-.cards { display: grid; gap: 10px; margin-bottom: 16px; grid-template-columns: 1fr 1fr; }
+.section {
+  background: #0b1220;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px 4px;
+  font-weight: 700;
+}
+.cards { display: grid; gap: 10px; margin-bottom: 10px; grid-template-columns: 1fr 1fr; }
 .card {
   background: #1e293b;
   border-radius: 10px;
@@ -43,8 +58,9 @@ h1 { font-size: 22px; color: #3b82f6; margin-bottom: 4px; }
   font-size: 16px;
   font-weight: 600;
   font-family: monospace;
+  word-break: break-word;
 }
-.checks { display: grid; gap: 6px; margin-bottom: 16px; }
+.checks { display: grid; gap: 6px; }
 .check {
   display: flex;
   justify-content: space-between;
@@ -84,23 +100,58 @@ button:disabled { opacity: 0.5; }
 </head>
 <body>
 
-<h1>AOWcloud UAC2</h1>
-<div class="subtitle">USB Audio + ADB Status</div>
+<h1>AOWcloud UAC2 v3.0.6</h1>
+<div class="subtitle">USB Audio + ADB + Bridge priv-app + Bridge daemon</div>
 
 <div id="banner" class="banner warn">Loading...</div>
 
-<div class="cards">
-  <div class="card">
-    <div class="card-title">UDC State</div>
-    <div id="state" class="card-value">-</div>
+<!-- ===== SEKCJA 1: UAC2 + ADB ===== -->
+<div class="section">
+  <div class="section-title">1. UAC2 + ADB (USB gadget)</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">UDC State</div>
+      <div id="state" class="card-value">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">VID:PID</div>
+      <div id="vidpid" class="card-value">-</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">VID:PID</div>
-    <div id="vidpid" class="card-value">-</div>
-  </div>
+  <div class="checks" id="checks"></div>
 </div>
 
-<div class="checks" id="checks"></div>
+<!-- ===== SEKCJA 2: Bridge App ===== -->
+<div class="section">
+  <div class="section-title">2. Bridge App (pl.aowcloud.bridge)</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Wersja</div>
+      <div id="appVersion" class="card-value">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Status</div>
+      <div id="appStatus" class="card-value">-</div>
+    </div>
+  </div>
+  <div class="checks" id="appChecks"></div>
+</div>
+
+<!-- ===== SEKCJA 3: Bridge Binary ===== -->
+<div class="section">
+  <div class="section-title">3. Bridge Binary (/system/xbin/)</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Status</div>
+      <div id="bridgeStatus" class="card-value">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Permissions</div>
+      <div id="bridgePerms" class="card-value">-</div>
+    </div>
+  </div>
+  <div class="checks" id="bridgeChecks"></div>
+</div>
 
 <div class="actions">
   <button class="btn-primary" id="btn-action" onclick="runAction()">Aktywuj UAC2</button>
@@ -113,17 +164,14 @@ button:disabled { opacity: 0.5; }
 <script>
 function refresh() {
   try {
-    // Najpierw uruchom status.sh - generuje plik JSON
     ksu.exec("/data/adb/modules/aowcloud_uac2/status.sh");
-    
-    // Potem czytaj JSON z pliku przez readFile (multiline-safe)
     var json = ksu.readFile("/data/local/tmp/uac2_status.json");
-    
+
     if (!json || json.length < 5) {
       banner("error", "Brak odpowiedzi z status.sh");
       return;
     }
-    
+
     var s = JSON.parse(json);
     updateUI(s);
     document.getElementById("lastUpdate").textContent = "Ostatnia aktualizacja: " + new Date().toLocaleTimeString();
@@ -140,16 +188,25 @@ function banner(cls, text) {
 
 function updateUI(s) {
   if (s.all_ok) {
-    banner("ok", "Wszystko dziala - UAC2 + ADB aktywne");
-  } else if (s.state === "configured") {
-    banner("warn", "Czesciowo skonfigurowane");
+    banner("ok", "Wszystko OK - UAC2 + Bridge priv-app + Bridge daemon aktywne");
+  } else if (s.state !== "configured") {
+    banner("error", "[1] UAC2 nieaktywne - kliknij Aktywuj UAC2");
+  } else if (!s.app_installed) {
+    banner("error", "[2] Bridge app NIE zainstalowana w /system/priv-app/");
+  } else if (!s.app_is_priv) {
+    banner("warn", "[2] Bridge app zainstalowana jako USER APP (nie priv-app)");
+  } else if (!s.app_has_capture || !s.app_has_modify_phone) {
+    banner("warn", "[2] Bridge priv-app dziala, brak signature permission grants");
+  } else if (s.bridge_binary !== "ok") {
+    banner("warn", "[3] Bridge binary problem: " + s.bridge_binary);
   } else {
-    banner("error", "UAC2 nieaktywne - kliknij Aktywuj");
+    banner("warn", "Czesciowo skonfigurowane");
   }
-  
+
+  // === SEKCJA 1 ===
   document.getElementById("state").textContent = s.state || "-";
   document.getElementById("vidpid").textContent = (s.vid || "-") + ":" + (s.pid || "-");
-  
+
   var checks = [
     { name: "Karta UAC2Gadget (ALSA)", ok: s.has_uac2_card },
     { name: "uac2.0 w configurze", ok: s.has_uac2 },
@@ -158,8 +215,35 @@ function updateUI(s) {
     { name: "idProduct = 0x4ee5", ok: s.pid === "0x4ee5" },
     { name: "UDC = configured", ok: s.state === "configured" }
   ];
-  
-  document.getElementById("checks").innerHTML = checks.map(function(c) {
+  document.getElementById("checks").innerHTML = renderChecks(checks);
+
+  // === SEKCJA 2 ===
+  document.getElementById("appVersion").textContent = s.app_version || "-";
+  var appStatusTxt = !s.app_installed ? "BRAK" : (s.app_is_priv ? "PRIV-APP" : "USER APP");
+  document.getElementById("appStatus").textContent = appStatusTxt;
+
+  var appChecks = [
+    { name: "Aplikacja zainstalowana", ok: s.app_installed },
+    { name: "CAPTURE_AUDIO_OUTPUT granted", ok: s.app_has_capture },
+    { name: "MODIFY_PHONE_STATE granted", ok: s.app_has_modify_phone }
+  ];
+  document.getElementById("appChecks").innerHTML = renderChecks(appChecks);
+
+  // === SEKCJA 3 ===
+  var bridgeStatusTxt = s.bridge_binary || "?";
+  document.getElementById("bridgeStatus").textContent = bridgeStatusTxt.toUpperCase();
+  document.getElementById("bridgePerms").textContent = (s.bridge_perms || "-") + " " + (s.bridge_context || "");
+
+  var bridgeChecks = [
+    { name: "Plik istnieje (" + (s.bridge_path || "-") + ")", ok: s.bridge_binary !== "missing" },
+    { name: "Executable (mode 755)", ok: s.bridge_binary !== "missing" && s.bridge_binary !== "bad_perms" },
+    { name: "SELinux: system_file:s0", ok: s.bridge_binary === "ok" }
+  ];
+  document.getElementById("bridgeChecks").innerHTML = renderChecks(bridgeChecks);
+}
+
+function renderChecks(arr) {
+  return arr.map(function(c) {
     return "<div class=\"check " + (c.ok ? "ok" : "fail") + "\">" +
            "<span>" + c.name + "</span>" +
            "<span class=\"stat\">" + (c.ok ? "OK" : "BRAK") + "</span>" +
@@ -171,7 +255,7 @@ function runAction() {
   var btn = document.getElementById("btn-action");
   btn.disabled = true;
   btn.textContent = "Aktywuje...";
-  
+
   try {
     ksu.exec("/data/adb/modules/aowcloud_uac2/action.sh");
     setTimeout(function() {

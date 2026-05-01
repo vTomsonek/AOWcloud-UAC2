@@ -1,7 +1,7 @@
 id=aowcloud_uac2
-name=AOWcloud UAC2
-version=v2.2.4
-versionCode=24
-author=vTomsonek
-description=USB Audio Class 2 + ADB composite gadget for call center setup. Auto-activates after boot. Phone works as USB soundcard while keeping ADB for scrcpy.
+name=AOWcloud UAC2 Call Center
+version=v3.0.6
+versionCode=306
+author=Tomeuq
+description=Complete call center solution: UAC2 USB Audio + ADB persistence + AOWcloud Bridge system priv-app + bridge daemon in /system/xbin/. Auto-activates UAC2+ADB after boot, injects priv-app + permissions XML over RO /system via tmpfs bind-mount.
 updateJson=https://raw.githubusercontent.com/vTomsonek/AOWcloud-UAC2/main/update.json

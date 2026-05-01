@@ -1,9 +1,9 @@
-# AOWcloud UAC2
+# AOWcloud UAC2 Call Center
 
-> KernelSU-Next module that turns your Xiaomi 12 Pro into a USB Audio Class 2 sound card while keeping ADB working — perfect for call-center setups, voice-streaming workflows, or anything that needs the phone to act as a USB soundcard for a PC.
+> Complete call-center stack for Xiaomi 12 Pro: USB Audio Class 2 + ADB persistence + privileged Bridge Android app + ALSA bridge daemon — turns the phone into a USB soundcard with HAL-bypassed voice-call capture for downstream PCs.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v2.2.4-green)](#)
+[![Version](https://img.shields.io/badge/version-v3.0.5-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
 
@@ -17,7 +17,11 @@ After installing this module and rebooting, your phone will automatically:
 2. ✅ Add a UAC2 (USB Audio Class 2) function to the active USB gadget
 3. ✅ Keep ADB working in parallel (composite gadget: ADB + UAC2)
 4. ✅ Set a fresh `idProduct` (`0x4ee5`) so Windows re-enumerates the device cleanly
-5. ✅ Expose a real-time status dashboard via KernelSU WebUI
+5. ✅ Inject `pl.aowcloud.bridge` as a system priv-app at `/system/priv-app/AOWcloudBridge/` with `CAPTURE_AUDIO_OUTPUT` + `MODIFY_PHONE_STATE` granted (HAL voice-mute bypass — see CHANGELOG v3.0.0/v3.0.4 for the long story)
+6. ✅ Install the ALSA bridge daemon at `/system/xbin/bridge` so the Android app can `Runtime.exec("/system/xbin/bridge ...")` without `su` and without manual KSU root-list entries
+7. ✅ Expose a real-time status dashboard via KernelSU WebUI
+
+The system overlay for `/system/priv-app/`, `/system/etc/permissions/`, and `/system/xbin/` is built at boot via `tmpfs` + `mount --bind` (this kernel doesn't support OverlayFS xattr fallbacks).
 
 When connected to a PC over USB-C, Windows will see:
 
@@ -28,6 +32,8 @@ USB Composite Device (Xiaomi 12 Pro)
 ```
 
 The audio device shows up in Windows Sound panel as **"Speakers (Source/Sink)"** and **"Microphone (Source/Sink)"** — fully bidirectional, 48 kHz, 16-bit, 2-channel stereo. No drivers needed, native USBAUDIO2.sys.
+
+---
 
 ---
 
