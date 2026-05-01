@@ -3,7 +3,7 @@
 > Complete call-center stack for Xiaomi 12 Pro: USB Audio Class 2 + ADB persistence + privileged Bridge Android app + ALSA bridge daemon — turns the phone into a USB soundcard with HAL-bypassed voice-call capture for downstream PCs.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v3.0.5-green)](#)
+[![Version](https://img.shields.io/badge/version-v3.0.6-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
 
@@ -194,15 +194,24 @@ Find `<card_num>` from `cat /proc/asound/cards`.
 ```
 aowcloud_uac2/
 ├── module.prop                metadata for KernelSU
-├── post-fs-data.sh            loads snd-aloop early
-├── service.sh                 waits for boot_completed, then runs action.sh
-├── action.sh                  the proven activation sequence (idempotent)
-├── status.sh                  emits a one-line JSON status to /data/local/tmp/uac2_status.json
+├── update.json                auto-update notifier endpoint
+├── customize.sh               install-time chmod/chcon for system/ overlay tree
+├── post-fs-data.sh            loads snd-aloop, bind-mounts /system/priv-app /etc/permissions /xbin
+├── service.sh                 waits for boot_completed, runs action.sh, auto-grants signature perms
+├── action.sh                  proven UAC2 + ADB activation sequence (idempotent)
+├── status.sh                  emits status JSON to /data/local/tmp/uac2_status.json
 ├── uninstall.sh               cleans up logs
 ├── modules/
-│   └── snd-aloop.ko           the loopback kernel module
+│   └── snd-aloop.ko           ALSA loopback kernel module
+├── system/
+│   ├── etc/permissions/
+│   │   └── privapp-permissions-pl.aowcloud.bridge.xml
+│   ├── priv-app/AOWcloudBridge/
+│   │   └── AOWcloudBridge.apk
+│   └── xbin/
+│       └── bridge             ALSA bridge daemon (capture↔playback / stdin / stdout modes)
 └── webroot/
-    └── index.html             KernelSU WebUI dashboard
+    └── index.html             KernelSU WebUI dashboard (3 sections)
 ```
 
 Logs:
