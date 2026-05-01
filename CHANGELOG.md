@@ -19,7 +19,7 @@
 - `status.sh` JSON now includes `bridge_binary`, `bridge_path`, `bridge_perms`, `bridge_context`.
 
 ### Changed
-- `module.prop` bumped to `version=v3.0.5 / versionCode=305`. Renamed to "AOWcloud UAC2 Call Center", author "Tomeuq".
+- `module.prop` bumped to `version=v3.0.5 / versionCode=305`.
 - `post-fs-data.sh` adds third bind_inject call for `/system/xbin/` with explicit `chmod 755` + `chcon u:object_r:system_file:s0` on the bridge binary after restorecon (since `/system/xbin/` may not have a file_contexts.bin rule on Android 12+).
 
 ## v3.0.4 (2026-04-30)
