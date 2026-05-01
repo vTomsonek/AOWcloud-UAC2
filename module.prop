@@ -1,7 +1,7 @@
 id=aowcloud_uac2
-name=AOWcloud UAC2 Call Center
+name=AOWcloud UAC2
 version=v3.0.6
 versionCode=306
-author=Tomeuq
+author=vTomsonek
 description=Complete call center solution: UAC2 USB Audio + ADB persistence + AOWcloud Bridge system priv-app + bridge daemon in /system/xbin/. Auto-activates UAC2+ADB after boot, injects priv-app + permissions XML over RO /system via tmpfs bind-mount.
 updateJson=https://raw.githubusercontent.com/vTomsonek/AOWcloud-UAC2/main/update.json
