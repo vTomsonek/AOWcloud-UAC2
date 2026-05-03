@@ -1,5 +1,0 @@
-[bridge --stdout] Opening capture: card 1 dev 11
-[bridge --stdout] Running. card 1 dev 11 -> stdout (48000 Hz, 2 ch, S16_LE)
-[bridge --stdout] pcm_read: rc=-1 errno=22 (Invalid argument) alsa='cannot read/write stream data: Invalid argument'
-
-[bridge --stdout] Stopped. Total: 0 frames (0.00 sec), xrun_recoveries=0
