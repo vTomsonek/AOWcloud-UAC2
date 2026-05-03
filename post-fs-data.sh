@@ -1,21 +1,18 @@
 #!/system/bin/sh
-# AOWcloud UAC2 v3.1.0 - post-fs-data
+# AOWcloud UAC2 v4.0.4 - post-fs-data
 #
 # What this does:
 #   1. Loads snd-aloop kernel module (ALSA loopback for bridge classic mode).
-#   2. Injects ALSA bridge daemon binary at /system/xbin/bridge via
-#      tmpfs + mount --bind (kernel doesn't support OverlayFS xattr).
-#   3. Restores SELinux contexts via restorecon after bind.
+#   2. Injects ALSA bridge daemon binary at /system/xbin/bridge.
+#   3. Injects modified audio_policy_configuration.xml at
+#      /vendor/etc/audio/sku_taro_qssi/ (voice_rx mixPort with maxOpenCount=2
+#      maxActiveCount=2 - allows Bridge AND soundrecorder to capture voice
+#      DOWNLINK simultaneously without race condition).
+#   4. Restores SELinux contexts via restorecon after each bind.
 #
-# v3.1.0 (module-only): aplikacja AOWcloud Bridge jest osobno na
-# github.com/vTomsonek/AOWcloud-Bridge (instalujesz przez Android Studio Run
-# lub adb install). Module robi auto-grant signature permissions
-# w service.sh jesli apka jest zainstalowana.
-#
-# Why bind-mount + tmpfs (not OverlayFS):
-#   This Xiaomi 12 Pro kernel doesn't expose trusted.* xattr on /data (F2FS)
-#   or /dev (tmpfs) and lacks userxattr (kernel <5.11). OverlayFS rejects
-#   every fallback. Bind-mount over tmpfs is the working pattern.
+# v4.0.4 (audio policy override - call-center mode trade-off): Bridge i system soundrecorder dziala
+# rownolegle. Voice DOWNLINK leci do dwoch konsumentow przez voice_rx mixPort
+# z maxActiveCount=2.
 
 MODDIR=${0%/*}
 LOG=/data/local/tmp/uac2_callcenter.log
@@ -32,18 +29,20 @@ fi
 
 # === 2. Bind-mount helper ===
 # $1 = label, $2 = source dir in module, $3 = system target dir, $4 = tmpfs size
+# $5 = SELinux context (default: system_file:s0; for /vendor use vendor_configs_file:s0)
 bind_inject() {
   LABEL=$1
   SRC=$2
   TARGET=$3
   SIZE=$4
+  CONTEXT=${5:-u:object_r:system_file:s0}
   TMPFS_DIR=/dev/aow_$LABEL
 
   if ! mountpoint -q "$TMPFS_DIR" 2>/dev/null; then
     mkdir -p "$TMPFS_DIR"
-    mount -t tmpfs -o size="$SIZE",mode=755,context=u:object_r:system_file:s0 \
+    mount -t tmpfs -o size="$SIZE",mode=755,context="$CONTEXT" \
       tmpfs "$TMPFS_DIR" 2>>"$LOG"
-    echo "  tmpfs $TMPFS_DIR: $?" >> "$LOG"
+    echo "  tmpfs $TMPFS_DIR (ctx=$CONTEXT): $?" >> "$LOG"
   fi
 
   # Copy original /system contents first (so other entries are not lost on bind)
@@ -81,7 +80,25 @@ if [ -f "$XBIN_SRC/bridge" ]; then
   echo "  bridge ready: $(ls -laZ /system/xbin/bridge 2>&1)" >> "$LOG"
 fi
 
-# === 4. Sanity ===
-echo "  bridge in /system/xbin: $(ls -laZ /system/xbin/bridge 2>&1)" >> "$LOG"
+# === 4. v4.0.3: SINGLE-FILE bind-mount dla audio_policy_configuration.xml ===
+# Zamiast cp -ar 12 plikow + restorecon -R (cap'owanego przez init timeout)
+# uzywamy bind --bind na pojedynczym pliku - milisekunda zamiast sekundy.
+# Pattern: chcon source -> mount --bind source target
 
-echo "=== post-fs-data.sh DONE $(date) ===" >> "$LOG"
+audio_policy_bind() {
+  SKU=$1
+  SRC="$MODDIR/vendor/etc/audio/$SKU/audio_policy_configuration.xml"
+  TARGET="/vendor/etc/audio/$SKU/audio_policy_configuration.xml"
+
+  if [ ! -f "$SRC" ]; then
+    echo "  audio_policy_bind $SKU: source missing - $SRC" >> "$LOG"
+    return 1
+  fi
+
+  # Set proper SELinux context na source (musi byc vendor_configs_file:s0)
+  chcon u:object_r:vendor_configs_file:s0 "$SRC" 2>>"$LOG"
+
+  # Single-file bind --bind (sec dla 1 pliku zamiast restorecon na 12)
+  mount --bind "$SRC" "$TARGET" 2>>"$LOG"
+  RC=$?
+  echo "  audio_policy_bind $SKU: bind=$RC

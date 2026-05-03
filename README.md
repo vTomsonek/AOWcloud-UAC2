@@ -3,7 +3,7 @@
 > KernelSU module for Xiaomi 12 Pro: USB Audio Class 2 + ADB composite gadget + ALSA bridge daemon. Turns the phone into a bidirectional USB soundcard (48 kHz, 16-bit, stereo). Companion Android app for HAL-bypassed voice-call capture is in a separate repo: **[github.com/vTomsonek/AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge)**.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v3.1.0-green)](#)
+[![Version](https://img.shields.io/badge/version-v4.0.4-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
 [![App](https://img.shields.io/badge/app-AOWcloud--Bridge-blue)](https://github.com/vTomsonek/AOWcloud-Bridge)
@@ -25,6 +25,27 @@ After installing this module and rebooting, your phone will automatically:
 The `/system/xbin/` overlay is built at boot via `tmpfs` + `mount --bind` (this kernel doesn't support OverlayFS xattr fallbacks).
 
 **v3.1.0 split**: the Android app `pl.aowcloud.bridge` (Kotlin source + APK) lives in a separate repo. Install it manually via Android Studio Run or `adb install` from [AOWcloud-Bridge releases](https://github.com/vTomsonek/AOWcloud-Bridge/releases). The module by itself provides a complete USB Audio + ADB setup for any PC-side software (Voicemeeter, OBS, Audacity, etc.) — the app is only needed for in-call audio routing (HAL voice-mute bypass).
+
+**v4.0.4 call-center mode** — added `voice_rx` mixPort patch (`maxOpenCount=2 maxActiveCount=2`) in `audio_policy_configuration.xml` for both SKU variants (`sku_taro`, `sku_taro_qssi`). KSU module bind-mounts the patched XMLs at boot. This lets two `AudioRecord(VOICE_DOWNLINK)` clients coexist on the audio policy level (the default `maxOpenCount=1` would reject the second open). See **Call-center mode** section below for the documented trade-off.
+
+---
+
+## Call-center mode (v4.0.4)
+
+The module enables a call-center setup where the phone acts as an audio hub: GSM/VoLTE conversation → PC (Voicemeeter Banana → headphones).
+
+**Important trade-off** — Bridge and HyperOS soundrecorder do NOT capture voice in parallel during the same call. User toggles Bridge ON/OFF per use case in the companion app UI:
+
+| Bridge state | HyperOS soundrecorder MP3 | PC (Voicemeeter via UAC2) |
+|---|---|---|
+| **OFF** (default) | ✅ records voice normally to `/sdcard/MIUI/sound_recorder/call_rec/recording_<phone>_<date>.mp3` | ❌ silent |
+| **ON** | ❌ silent (zero-filled samples) | ✅ receives voice DOWNLINK (and UL via mic) |
+
+**Why this trade-off exists.** Even with the audio_policy `maxActiveCount=2` patch (which opens the policy-level gate), Google AOSP `AudioFlinger::setRecordSilenced(portId, true)` is invoked on the second `VOICE_DOWNLINK` client. The first client wins voice samples; the second receives zeros. This is enforced at the framework level, below `libaudioflingerimpl.so` (Xiaomi extension) — bypassing it requires either binary patching `libaudioflingerimpl.so` or hooking `audioserver` (which is a native daemon, not Zygote-forked, so standard Zygisk cannot inject).
+
+For most call-center workflows the toggle is a non-issue: when actively in a call you typically want either the live PC stream (taking calls in headphones) or the local MP3 recording (archive/QA review), not both simultaneously. The toggle is a deliberate, documented user choice — see Bridge app UI.
+
+---
 
 When connected to a PC over USB-C, Windows will see:
 

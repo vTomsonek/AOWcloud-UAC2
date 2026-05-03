@@ -1,3 +1,45 @@
+## v4.0.4 (2026-05-03) — OFFICIAL RELEASE
+
+### Documented call-center mode trade-off
+
+Bridge ↔ HyperOS soundrecorder nie działają **równolegle** podczas tej samej rozmowy. User toggluje Bridge ON/OFF świadomie:
+
+- **Bridge OFF** (default) — HyperOS soundrecorder nagrywa MP3 z głosem rozmówcy do `/sdcard/MIUI/sound_recorder/call_rec/` jak wcześniej. Voicemeeter nieaktywny.
+- **Bridge ON** — Bridge streamuje voice DOWNLINK + UL do PC (Voicemeeter Banana → słuchawki). HyperOS soundrecorder MP3 jest cichy (silenced) bo Google AOSP `AudioFlinger::setRecordSilenced(portId, true)` wywołuje się na drugim VOICE_DOWNLINK kliencie.
+
+To NIE jest bug — to architektoniczne ograniczenie HyperOS audio framework. `audio_policy_configuration.xml` patch (voice_rx mixPort `maxOpenCount=2 maxActiveCount=2`) otwiera gate na poziomie policy, ale framework wciąż przyznaje real samples tylko pierwszemu klientowi.
+
+### Changed
+
+- `module.prop` opis precyzyjnie odzwierciedla trade-off (v4.0.3 marketing description był nieuczciwy)
+- `post-fs-data.sh` header version → v4.0.4
+
+### Same content as v4.0.3
+
+Module binary content identyczny: bridge daemon, snd-aloop, audio_policy patches dla `sku_taro` + `sku_taro_qssi`. Tylko opis i wersja bumpnięte.
+
+## v4.1.0 (2026-05-01) — WITHDRAWN
+
+**Wycofany** — patch `audio_cloud_control_white_list.xml` (dodanie `pl.aowcloud.bridge` do `record_unsilence_app_name_list`) zaburzał audio routing rozmowy: tryb głośnomówiący był wymuszany, soundrecorder nie startował (ikona record gasła po 0.5s). Powrót do baseline v4.0.3.
+
+## v4.0.3 (2026-05-01) — superseded by v4.0.4
+
+### Fixed
+
+- `post-fs-data.sh`: SINGLE-FILE `mount --bind` dla `audio_policy_configuration.xml` zamiast `cp -ar` + `restorecon -R` (cap'owany przez KSU init timeout)
+- Pattern: `chcon u:object_r:vendor_configs_file:s0 SRC; mount --bind SRC TARGET`
+
+## v4.0.0 / v4.0.1 / v4.0.2 (2026-04-30 — 2026-05-01)
+
+### Added
+
+- `voice_rx` mixPort patch w `/vendor/etc/audio/sku_{taro,taro_qssi}/audio_policy_configuration.xml`: `maxOpenCount="2" maxActiveCount="2"` (default = 1)
+- KSU bind-mount overlay nad obu SKU XML files
+- `killall -9 audioserver` w post-fs-data.sh żeby przeładował patched audio_policy
+
+### Why
+Bez tego, drugi `AudioRecord(VOICE_DOWNLINK)` open zwracał `audio_io_handle_t = AUDIO_IO_HANDLE_NONE` (open failed) bo voice_rx mixPort miał default `maxOpenCount=1`. v4.0.x patch otwiera ten gate — oba klienci mogą OTWORZYĆ port. Drugi gate (silencing) odkryty dopiero w v4.0.4 jako finalny architektoniczny limit.
+
 ## v3.1.0 (2026-05-01)
 
 ### Major: Module-app split
