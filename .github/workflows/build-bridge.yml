@@ -1,0 +1,115 @@
+name: Build bridge daemon + lame ARM64
+
+on:
+  push:
+    paths:
+      - 'tools/bridge.c'
+      - '.github/workflows/build-bridge.yml'
+  workflow_dispatch:  # manual trigger from Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r26d
+        local-cache: true
+
+    - name: Install build deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake libtool wget
+
+    - name: Cache LAME source
+      id: cache-lame-src
+      uses: actions/cache@v4
+      with:
+        path: lame-3.100.tar.gz
+        key: lame-3.100-source
+
+    - name: Download LAME source
+      if: steps.cache-lame-src.outputs.cache-hit != 'true'
+      run: |
+        wget -q https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download -O lame-3.100.tar.gz
+        echo "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e  lame-3.100.tar.gz" | sha256sum -c -
+
+    - name: Download tinyalsa source
+      run: |
+        git clone --depth 1 --branch v2.0.0 https://github.com/tinyalsa/tinyalsa.git tinyalsa
+
+    - name: Setup NDK toolchain vars
+      run: |
+        echo "NDK_TOOLCHAIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
+        echo "TARGET=aarch64-linux-android30" >> $GITHUB_ENV
+
+    - name: Cross-compile LAME static ARM64
+      run: |
+        tar xzf lame-3.100.tar.gz
+        cd lame-3.100
+        export CC="$NDK_TOOLCHAIN/bin/${TARGET}-clang"
+        export CXX="$NDK_TOOLCHAIN/bin/${TARGET}-clang++"
+        export AR="$NDK_TOOLCHAIN/bin/llvm-ar"
+        export RANLIB="$NDK_TOOLCHAIN/bin/llvm-ranlib"
+        export STRIP="$NDK_TOOLCHAIN/bin/llvm-strip"
+        export CFLAGS="-static -O2"
+        export LDFLAGS="-static"
+        # LAME 3.100 frontend bug workaround: xmm reg emit
+        sed -i 's/lame_init_old/lame_init_old_unused/g' include/libmp3lame.sym 2>/dev/null || true
+        ./configure \
+          --host=aarch64-linux-android \
+          --disable-shared \
+          --enable-static \
+          --disable-frontend \
+          --disable-decoder \
+          --disable-mp3rtp \
+          --disable-gtktest \
+          --enable-nasm=no
+        make -j$(nproc) || true
+        # build frontend manually (statyczny):
+        cd frontend
+        make -j$(nproc) lame
+        $STRIP lame
+        echo "=== lame binary ==="
+        ls -la lame
+        file lame
+
+    - name: Build bridge daemon ARM64
+      run: |
+        # Compile tinyalsa static
+        TA_SRC="tinyalsa/src/mixer.c tinyalsa/src/pcm.c tinyalsa/src/mixer_hw.c tinyalsa/src/mixer_plugin.c tinyalsa/src/pcm_hw.c tinyalsa/src/pcm_plugin.c tinyalsa/src/snd_card_plugin.c"
+
+        $NDK_TOOLCHAIN/bin/${TARGET}-clang \
+          -static -O2 \
+          -I tinyalsa/include \
+          tools/bridge.c $TA_SRC \
+          -o bridge \
+          -lm -ldl -lpthread
+
+        $NDK_TOOLCHAIN/bin/llvm-strip bridge
+        echo "=== bridge binary ==="
+        ls -la bridge
+        file bridge
+
+    - name: Verify binaries
+      run: |
+        echo "=== bridge size and architecture ==="
+        ls -la bridge
+        file bridge
+        echo "=== lame size and architecture ==="
+        ls -la lame-3.100/frontend/lame
+        file lame-3.100/frontend/lame
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bridge-arm64-binaries
+        path: |
+          bridge
+          lame-3.100/frontend/lame
+        retention-days: 30
