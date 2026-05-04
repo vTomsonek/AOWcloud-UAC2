@@ -43,4 +43,14 @@ else
   echo "    (zainstaluj przez Android Studio Run)" >> "$LOG"
 fi
 
+# === v5.1.0: force-allow OP_RECORD_AUDIO dla soundrecorder + Bridge ===
+# Logcat ujawnil ze audioserver wywoluje "App op 27 missing, silencing record"
+# dla soundrecorder gdy Bridge ma aktywny VOICE_DOWNLINK. Force-allow w AppOps
+# zapobiega temu silencing. Op 27 = OP_RECORD_AUDIO (AOSP standard).
+echo "  === v5.1.0: AppOps force-allow RECORD_AUDIO ===" >> "$LOG"
+appops set com.android.soundrecorder RECORD_AUDIO allow 2>>"$LOG"
+echo "    appops soundrecorder: $?" >> "$LOG"
+appops set pl.aowcloud.bridge RECORD_AUDIO allow 2>>"$LOG"
+echo "    appops bridge: $?" >> "$LOG"
+
 echo "=== service.sh DONE $(date) ===" >> "$LOG"

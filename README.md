@@ -3,7 +3,7 @@
 > KernelSU module for Xiaomi 12 Pro: USB Audio Class 2 + ADB composite gadget + ALSA bridge daemon. Turns the phone into a bidirectional USB soundcard (48 kHz, 16-bit, stereo). Companion Android app for HAL-bypassed voice-call capture is in a separate repo: **[github.com/vTomsonek/AOWcloud-Bridge](https://github.com/vTomsonek/AOWcloud-Bridge)**.
 
 [![Module](https://img.shields.io/badge/KernelSU--Next-Module-blue)](https://github.com/rifsxd/KernelSU-Next)
-[![Version](https://img.shields.io/badge/version-v4.0.4-green)](#)
+[![Version](https://img.shields.io/badge/version-v5.0.0-green)](#)
 [![Device](https://img.shields.io/badge/device-Xiaomi%2012%20Pro%20(zeus)-orange)](#)
 [![Kernel](https://img.shields.io/badge/kernel-GKI%205.10-purple)](#)
 [![App](https://img.shields.io/badge/app-AOWcloud--Bridge-blue)](https://github.com/vTomsonek/AOWcloud-Bridge)
@@ -30,20 +30,26 @@ The `/system/xbin/` overlay is built at boot via `tmpfs` + `mount --bind` (this 
 
 ---
 
-## Call-center mode (v4.0.4)
+## Call-center mode (v5.0.0 — full parallel)
 
-The module enables a call-center setup where the phone acts as an audio hub: GSM/VoLTE conversation → PC (Voicemeeter Banana → headphones).
+The module enables a call-center setup where the phone acts as an audio hub: GSM/VoLTE conversation → PC (Voicemeeter Banana → headphones), **with simultaneous local MP3 recording** by HyperOS soundrecorder.
 
-**Important trade-off** — Bridge and HyperOS soundrecorder do NOT capture voice in parallel during the same call. User toggles Bridge ON/OFF per use case in the companion app UI:
+**Both clients receive real voice samples in parallel during every call:**
 
-| Bridge state | HyperOS soundrecorder MP3 | PC (Voicemeeter via UAC2) |
-|---|---|---|
-| **OFF** (default) | ✅ records voice normally to `/sdcard/MIUI/sound_recorder/call_rec/recording_<phone>_<date>.mp3` | ❌ silent |
-| **ON** | ❌ silent (zero-filled samples) | ✅ receives voice DOWNLINK (and UL via mic) |
+| Client | What it does |
+|---|---|
+| HyperOS soundrecorder | ✅ records voice DL+UL to `/sdcard/MIUI/sound_recorder/call_rec/recording_<phone>_<date>.mp3` (parsed by `pl.aowcloud.mi` panel app) |
+| Bridge → PC (Voicemeeter via UAC2) | ✅ streams voice DL to PC, UL via UAC2 mic |
 
-**Why this trade-off exists.** Even with the audio_policy `maxActiveCount=2` patch (which opens the policy-level gate), Google AOSP `AudioFlinger::setRecordSilenced(portId, true)` is invoked on the second `VOICE_DOWNLINK` client. The first client wins voice samples; the second receives zeros. This is enforced at the framework level, below `libaudioflingerimpl.so` (Xiaomi extension) — bypassing it requires either binary patching `libaudioflingerimpl.so` or hooking `audioserver` (which is a native daemon, not Zygote-forked, so standard Zygisk cannot inject).
+**How it works.** Two layers of work:
 
-For most call-center workflows the toggle is a non-issue: when actively in a call you typically want either the live PC stream (taking calls in headphones) or the local MP3 recording (archive/QA review), not both simultaneously. The toggle is a deliberate, documented user choice — see Bridge app UI.
+1. **Audio policy patch** — `voice_rx` mixPort in `/vendor/etc/audio/sku_taro{,_qssi}/audio_policy_configuration.xml` set to `maxOpenCount="2" maxActiveCount="2"`. This opens the policy-level gate so two `AudioRecord(VOICE_DOWNLINK)` clients can coexist (default `maxOpenCount=1` would reject the second open).
+
+2. **Binary patch of `libaudiopolicyserviceimpl.so`** — the Xiaomi-modified AudioPolicyService had a remaining gate: `AudioPolicyServiceImpl::getRecordSilencedToAf(...)` returned `true` for the second `VOICE_DOWNLINK` client (causing `AudioFlinger::setRecordSilenced(portId, true)` → second client read zeroes). We patched that function at offset `0x27cf0` (8 bytes: `paciasp + stp` → `mov w0, #0 + ret`) so it always returns 0 (=not silenced). KSU module bind-mounts the patched `.so` over `/system_ext/lib64/libaudiopolicyserviceimpl.so` at boot.
+
+The patch is surgical — it only changes that one function, leaving all other AudioPolicyService logic intact. SELinux context preserved (`system_lib_file:s0`). Audioserver is killed in `post-fs-data.sh` so `init` respawns it with the patched `.so` loaded.
+
+**Disclaimer.** The binary patch is highly device-specific (tied to the exact `.so` shipped with HyperOS xiaomi.eu Android 14 on Xiaomi 12 Pro / zeus). System OTA updates that ship a new `libaudiopolicyserviceimpl.so` will require re-deriving the patch. The module fingerprint is verified at install time (planned for v5.1).
 
 ---
 

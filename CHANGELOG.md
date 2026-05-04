@@ -1,3 +1,38 @@
+## v5.0.0 (2026-05-03) — FULL PARALLEL MODE 🎉
+
+### Major: Bridge AND soundrecorder both work in parallel
+
+After 4 months of iteration (Plans A–F4 attempted and rejected), achieved the goal: **both AudioRecord(VOICE_DOWNLINK) clients receive real voice samples simultaneously during every call**. No more toggle, no more trade-off.
+
+### How
+
+**Two-layer fix:**
+
+1. **Audio policy override** (zachowane z v4.0.x) — `voice_rx` mixPort `maxOpenCount=2 maxActiveCount=2` w `audio_policy_configuration.xml` (oba SKU). Otwiera policy-level gate.
+
+2. **Binary patch `libaudiopolicyserviceimpl.so`** (NEW) — Xiaomi modyfikacja AudioPolicyService miala funkcje `AudioPolicyServiceImpl::getRecordSilencedToAf` ktora zwracala `true` dla drugiego klienta VOICE_DOWNLINK (powodujac `setRecordSilenced(portId, true)` na nim). Zpatchowana 8-bajtow w funkcji @ offset `0x27cf0`:
+   - Original: `3f 23 03 d5 fd 7b be a9` (paciasp + stp x29,x30,[sp,#-0x20]!)
+   - Patched:  `00 00 80 52 c0 03 5f d6` (mov w0,#0 + ret)
+   - Funkcja teraz zawsze zwraca 0 (=nie silenced)
+   - SELinux context preserved: `system_lib_file:s0`
+
+### Build artifacts
+
+- `system_ext/lib64/libaudiopolicyserviceimpl.so` — patched, MD5 `bfdb5683cb7a06dc0c8b8b6e47e4b5b2` (orig MD5: `c97b8698d6ef1c9cce5ee1b9f09fa9e8`)
+- `post-fs-data.sh` — dodana funkcja `audio_libaps_bind` (single-file mount --bind)
+
+### Risk i rollback
+
+- Binary patch jest device-specific (tied do dokladnej wersji `.so` z HyperOS xiaomi.eu A14 na Xiaomi 12 Pro)
+- Rollback przy bootloop: KSU recovery → `ksud module disable aowcloud_uac2` → reboot
+- Lub: enable "Turn off modules on next reboot" w KernelSU app PRZED flash v5.0.0
+
+### Co bylo testowane / odrzucone (historia)
+
+- v4.1.0 whitelist patch — rozwalil routing (głośnomówiący wymuszony, soundrecorder nie startowal). WYCOFANE.
+- Plan F2 Zygisk hook na audioserver — niemozliwe (audioserver to native daemon, nie forked z zygote).
+- Plan F4 LSPosed hook na soundrecorder K0 isOtherAppRecording — niepotrzebne; w v4.0.3 soundrecorder normalnie startuje (K0 nie blokuje). Problem byl w setRecordSilenced.
+
 ## v4.0.4 (2026-05-03) — OFFICIAL RELEASE
 
 ### Documented call-center mode trade-off
